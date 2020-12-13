@@ -29,4 +29,10 @@ module "website" {
   certificate_domain = "www.truemark.io"
   depends_on = [module.s3]
 }
+
+# Allow the rw user to perform invalidations
+resource "aws_iam_user_policy_attachment" "spa" {
+  user = module.s3.iam_user_rw_name
+  policy_arn = module.website.iam_policy_arn
+}
 ```  
