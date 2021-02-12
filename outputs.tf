@@ -1,5 +1,9 @@
-output "redirect_lambda_arn" {
-  value = aws_lambda_function.redirect.arn
+output "viewer_request_lambda_arn" {
+  value = aws_lambda_function.viewer_request.arn
+}
+
+output "origin_request_lambda_arn" {
+  value = aws_lambda_function.origin_request.arn
 }
 
 output "cloudfront_distribution_arn" {

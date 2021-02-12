@@ -4,6 +4,8 @@ notes.txt
 .vscode
 .sw?
 *.zip
+origin_request/index.js
+viewer_request/index.js
 
 # Terraform & Terragrunt
 .terragrunt-cache

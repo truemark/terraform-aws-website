@@ -16,85 +16,151 @@ data "aws_s3_bucket" "spa" {
 }
 
 #------------------------------------------------------------------------------
-# Redirect Lambda
+# Viewer Request Lambda
 #------------------------------------------------------------------------------
-resource "aws_iam_role" "redirect" {
-  name = "${var.name}-lambda-redirect"
+resource "aws_iam_role" "viewer_request" {
+  name = "${var.name}-viewer-request"
   assume_role_policy = file("${path.module}/lambda_policy.json")
   tags = {
-    Name = "${var.name}-lambda-redirect"
+    Name = "${var.name}-lambda"
   }
 }
 
-data "template_file" "redirect" {
-  template = file("${path.module}/redirect/redirect.tpl.js")
+data "template_file" "viewer_request" {
+  template = file("${path.module}/viewer_request/index.tpl.js")
   vars = {
     domain = element(local.fqdns, 0)
   }
 }
 
-resource "local_file" "redirect" {
-  content     = data.template_file.redirect.rendered
-  filename    = "${path.module}/redirect/redirect.js"
-  depends_on = [data.template_file.redirect]
+resource "local_file" "viewer_request" {
+  content     = data.template_file.viewer_request.rendered
+  filename    = "${path.module}/viewer_request/index.js"
+  depends_on = [data.template_file.viewer_request]
 }
 
-data "archive_file" "redirect" {
+data "archive_file" "viewer_request" {
   type        = "zip"
-  source_dir  = "${path.module}/redirect"
-  output_path = "${path.module}/redirect.zip"
-  depends_on = [local_file.redirect]
+  source_dir  = "${path.module}/viewer_request"
+  output_path = "${path.module}/viewer_request.zip"
 }
 
-resource "aws_lambda_function" "redirect" {
-  filename          = data.archive_file.redirect.output_path
-  source_code_hash  = data.archive_file.redirect.output_base64sha256
-  function_name     = "${var.name}-redirect"
-  role              = aws_iam_role.redirect.arn
-  handler           = "redirect.handler"
-  publish           = true
-  runtime           = "nodejs12.x"
-}
-
-#------------------------------------------------------------------------------
-# Index Lambda
-#------------------------------------------------------------------------------
-resource "aws_iam_role" "index" {
-  name = "${var.name}-lambda-index"
-  assume_role_policy = file("${path.module}/lambda_policy.json")
-  tags = {
-    Name = "${var.name}-lambda-index"
-  }
-}
-
-data "template_file" "index" {
-  template = file("${path.module}/index/index.tpl.js")
-  vars = {
-    domain = element(local.fqdns, 0)
-  }
-}
-
-resource "local_file" "index" {
-  content     = data.template_file.index.rendered
-  filename    = "${path.module}/index/index.js"
-  depends_on = [data.template_file.index]
-}
-
-data "archive_file" "index" {
-  type        = "zip"
-  source_dir  = "${path.module}/index"
-  output_path = "${path.module}/index.zip"
-  depends_on = [local_file.index]
-}
-
-resource "aws_lambda_function" "index" {
-  filename          = data.archive_file.index.output_path
-  source_code_hash  = data.archive_file.index.output_base64sha256
-  function_name     = "${var.name}-index"
-  role              = aws_iam_role.index.arn
+resource "aws_lambda_function" "viewer_request" {
+  filename          = data.archive_file.viewer_request.output_path
+  source_code_hash  = data.archive_file.viewer_request.output_base64sha256
+  function_name     = "${var.name}-viewer-request"
+  role              = aws_iam_role.viewer_request.arn
   handler           = "index.handler"
   publish           = true
   runtime           = "nodejs12.x"
+}
+
+//resource "aws_cloudwatch_log_group" "viewer_request" {
+//  name              = "/aws/lambda/${aws_lambda_function.viewer_request.function_name}"
+//  retention_in_days = 2
+//  tags = {}
+//}
+
+resource "aws_iam_policy" "viewer_request" {
+  name        = "${var.name}-viewer-request"
+  path        = "/"
+  description = "IAM policy for logging from a lambda"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*",
+      "Effect": "Allow"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "viewer_request" {
+  policy_arn = aws_iam_policy.viewer_request.arn
+  role = aws_iam_role.viewer_request.name
+}
+
+#------------------------------------------------------------------------------
+# Origin Request Lambda
+#------------------------------------------------------------------------------
+resource "aws_iam_role" "origin_request" {
+  name = "${var.name}-origin-request"
+  assume_role_policy = file("${path.module}/lambda_policy.json")
+  tags = {
+    Name = "${var.name}-lambda"
+  }
+}
+
+data "template_file" "origin_request" {
+  template = file("${path.module}/origin_request/index.tpl.js")
+  vars = {
+    domain = element(local.fqdns, 0)
+  }
+}
+
+resource "local_file" "origin_request" {
+  content     = data.template_file.origin_request.rendered
+  filename    = "${path.module}/origin_request/index.js"
+  depends_on = [data.template_file.origin_request]
+}
+
+data "archive_file" "origin_request" {
+  type        = "zip"
+  source_dir  = "${path.module}/origin_request"
+  output_path = "${path.module}/origin_request.zip"
+}
+
+resource "aws_lambda_function" "origin_request" {
+  filename          = data.archive_file.origin_request.output_path
+  source_code_hash  = data.archive_file.origin_request.output_base64sha256
+  function_name     = "${var.name}-origin-request"
+  role              = aws_iam_role.origin_request.arn
+  handler           = "index.handler"
+  publish           = true
+  runtime           = "nodejs12.x"
+}
+
+//resource "aws_cloudwatch_log_group" "origin_request" {
+//  name              = "/aws/lambda/${aws_lambda_function.origin_request.function_name}"
+//  retention_in_days = 2
+//  tags = {}
+//}
+
+resource "aws_iam_policy" "origin_request" {
+  name        = "${var.name}-origin-request"
+  path        = "/"
+  description = "IAM policy for logging from a lambda"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:*",
+      "Effect": "Allow"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "origin_request" {
+  policy_arn = aws_iam_policy.origin_request.arn
+  role = aws_iam_role.origin_request.name
 }
 
 #------------------------------------------------------------------------------
@@ -161,12 +227,12 @@ resource "aws_cloudfront_distribution" "spa" {
 
     lambda_function_association {
       event_type = "viewer-request"
-      lambda_arn = aws_lambda_function.redirect.qualified_arn
+      lambda_arn = aws_lambda_function.viewer_request.qualified_arn
     }
 
     lambda_function_association {
       event_type = "origin-request"
-      lambda_arn = aws_lambda_function.index.qualified_arn
+      lambda_arn = aws_lambda_function.origin_request.qualified_arn
     }
 
     min_ttl                = 0
