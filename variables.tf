@@ -13,6 +13,7 @@ variable "domain_names" {
   type = list(object({
     record_name = string
     zone_name = string
+    create_record = bool
   }))
 }
 

@@ -4,6 +4,7 @@ locals {
     for d in var.domain_names:
     format("%s%s%s", d.record_name, d.record_name == "" ? "" : ".", d.zone_name)
   ]
+  domain_names_create_records = [for d in var.domain_names: d if d.create_record]
 }
 
 data "aws_acm_certificate" "spa" {
@@ -275,15 +276,15 @@ resource "aws_cloudfront_distribution" "spa" {
 # Route53 Records
 #------------------------------------------------------------------------------
 data "aws_route53_zone" "spa" {
-  count = length(var.domain_names)
-  name = var.domain_names[count.index].zone_name
+  count = length(local.domain_names_create_records)
+  name = local.domain_names_create_records[count.index].zone_name
   private_zone = false
 }
 
 resource "aws_route53_record" "spa" {
-  count = length(var.domain_names)
+  count = length(local.domain_names_create_records)
   zone_id = data.aws_route53_zone.spa[count.index].id
-  name    = var.domain_names[count.index].record_name
+  name    = local.domain_names_create_records[count.index].record_name
   type    = "A"
   alias {
     name = aws_cloudfront_distribution.spa.domain_name
