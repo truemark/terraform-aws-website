@@ -44,6 +44,7 @@ data "archive_file" "viewer_request" {
   type        = "zip"
   source_dir  = "${path.module}/viewer_request"
   output_path = "${path.module}/viewer_request.zip"
+  depends_on = [local_file.viewer_request]
 }
 
 resource "aws_lambda_function" "viewer_request" {
@@ -54,6 +55,7 @@ resource "aws_lambda_function" "viewer_request" {
   handler           = "index.handler"
   publish           = true
   runtime           = "nodejs12.x"
+  depends_on = [data.archive_file.viewer_request]
 }
 
 //resource "aws_cloudwatch_log_group" "viewer_request" {
@@ -118,6 +120,7 @@ data "archive_file" "origin_request" {
   type        = "zip"
   source_dir  = "${path.module}/origin_request"
   output_path = "${path.module}/origin_request.zip"
+  depends_on = [local_file.origin_request]
 }
 
 resource "aws_lambda_function" "origin_request" {
@@ -128,6 +131,7 @@ resource "aws_lambda_function" "origin_request" {
   handler           = "index.handler"
   publish           = true
   runtime           = "nodejs12.x"
+  depends_on = [data.archive_file.origin_request]
 }
 
 //resource "aws_cloudwatch_log_group" "origin_request" {
